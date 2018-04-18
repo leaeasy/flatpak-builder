@@ -99,6 +99,7 @@ struct BuilderManifest
   char          **sdk_extensions;
   char          **platform_extensions;
   char           *command;
+  char           *service;
   BuilderOptions *build_options;
   GList          *modules;
   GList          *expanded_modules;
@@ -135,6 +136,7 @@ enum {
   PROP_METADATA_PLATFORM,
   PROP_BUILD_OPTIONS,
   PROP_COMMAND,
+  PROP_SERVICE,
   PROP_MODULES,
   PROP_CLEANUP,
   PROP_CLEANUP_COMMANDS,
@@ -184,6 +186,7 @@ builder_manifest_finalize (GObject *object)
   g_free (self->metadata);
   g_free (self->metadata_platform);
   g_free (self->command);
+  g_free (self->service);
   g_clear_object (&self->build_options);
   g_list_free_full (self->modules, g_object_unref);
   g_list_free_full (self->add_extensions, g_object_unref);
@@ -328,6 +331,10 @@ builder_manifest_get_property (GObject    *object,
 
     case PROP_COMMAND:
       g_value_set_string (value, self->command);
+      break;
+	
+	case PROP_SERVICE:
+      g_value_set_string (value, self->service);
       break;
 
     case PROP_BUILD_OPTIONS:
@@ -538,6 +545,11 @@ builder_manifest_set_property (GObject      *object,
     case PROP_COMMAND:
       g_free (self->command);
       self->command = g_value_dup_string (value);
+      break;
+	
+	case PROP_SERVICE:
+      g_free (self->service);
+      self->service = g_value_dup_string (value);
       break;
 
     case PROP_BUILD_OPTIONS:
@@ -810,6 +822,14 @@ builder_manifest_class_init (BuilderManifestClass *klass)
   g_object_class_install_property (object_class,
                                    PROP_COMMAND,
                                    g_param_spec_string ("command",
+                                                        "",
+                                                        "",
+                                                        NULL,
+                                                        G_PARAM_READWRITE));
+
+  g_object_class_install_property (object_class,
+                                   PROP_SERVICE,
+                                   g_param_spec_string ("service",
                                                         "",
                                                         "",
                                                         NULL,
@@ -1226,6 +1246,12 @@ builder_manifest_get_id (BuilderManifest *self)
   return self->id;
 }
 
+const char *
+builder_manifest_get_service (BuilderManifest *self)
+{
+  return self->service;
+}
+
 char *
 builder_manifest_get_locale_id (BuilderManifest *self)
 {
@@ -1518,6 +1544,10 @@ builder_manifest_init_app_dir (BuilderManifest *self,
     {
       for (i = 0; self->tags[i] != NULL; i++)
         g_ptr_array_add (args, g_strdup_printf ("--tag=%s", self->tags[i]));
+    }
+  if (self->service)
+    {
+        g_ptr_array_add (args, g_strdup_printf ("--service=%s", self->service));
     }
   if (self->var)
     g_ptr_array_add (args, g_strdup_printf ("--var=%s", self->var));
@@ -2636,7 +2666,7 @@ builder_manifest_finish (BuilderManifest *self,
 
           if (!g_key_file_save_to_file (keyfile,
                                         flatpak_file_get_path_cached (metadata),
-                                        error))
+                                        NULL))
             {
               g_prefix_error (error, "Can't save metadata.platform: ");
               return FALSE;

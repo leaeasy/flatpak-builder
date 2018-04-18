@@ -54,6 +54,7 @@ char *          builder_manifest_get_locale_id (BuilderManifest *self);
 char *          builder_manifest_get_debug_id (BuilderManifest *self);
 char *          builder_manifest_get_sources_id (BuilderManifest *self);
 const char *    builder_manifest_get_id_platform (BuilderManifest *self);
+const char *    builder_manifest_get_service (BuilderManifest *self);
 char *          builder_manifest_get_locale_id_platform (BuilderManifest *self);
 BuilderOptions *builder_manifest_get_build_options (BuilderManifest *self);
 GList *         builder_manifest_get_modules (BuilderManifest *self);

@@ -66,18 +66,6 @@ for i in `sort -u $T`; do
     cp "$i" ${DIR}/usr/lib/
 done
 
-# We copy the C.UTF8 locale and call it en_US. Its a bit of a lie, but
-# the real en_US locale is often not available, because its in the
-# local archive.
-mkdir -p ${DIR}/usr/lib/locale/
-cp -r /usr/lib/locale/C.* ${DIR}/usr/lib/locale/en_US
-
-if [ x$COLLECTION_ID != x ]; then
-    collection_args=--collection-id=${COLLECTION_ID}
-else
-    collection_args=
-fi
-
 mkdir -p repos
-flatpak build-export ${collection_args} --runtime ${GPGARGS-} repos/${REPONAME} ${DIR}
+flatpak build-export --runtime ${GPGARGS-} repos/${REPONAME} ${DIR}
 rm -rf ${DIR}

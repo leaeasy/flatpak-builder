@@ -51,6 +51,7 @@ ${FLATPAK_BUILDER} --repo=$REPO $FL_GPGARGS --force-clean appdir test.json
 
 assert_file_has_content appdir/files/share/app-data version1
 assert_file_has_content appdir/metadata shared=network;
+assert_file_has_content appdir/metadata service=org.test.Hello2;
 assert_file_has_content appdir/metadata tags=test;
 assert_file_has_content appdir/files/ran_module1 module1
 assert_file_has_content appdir/files/ran_module2 module2

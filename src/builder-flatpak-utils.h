@@ -56,6 +56,7 @@ typedef void (*FlatpakLoadUriProgress) (guint64 downloaded_bytes,
 #define FLATPAK_METADATA_GROUP_RUNTIME "Runtime"
 #define FLATPAK_METADATA_KEY_COMMAND "command"
 #define FLATPAK_METADATA_KEY_NAME "name"
+#define FLATPAK_METADATA_KEY_SERVICE "service"
 #define FLATPAK_METADATA_KEY_REQUIRED_FLATPAK "required-flatpak"
 #define FLATPAK_METADATA_KEY_RUNTIME "runtime"
 #define FLATPAK_METADATA_KEY_SDK "sdk"

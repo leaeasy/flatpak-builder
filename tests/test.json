@@ -3,6 +3,7 @@
     "runtime": "org.test.Platform",
     "sdk": "org.test.Sdk",
     "command": "hello2.sh",
+	"service": "org.test.Hello2",
     "tags": ["test"],
     "finish-args": [
         "--share=network"

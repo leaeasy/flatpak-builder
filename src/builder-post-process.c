@@ -250,7 +250,7 @@ fixup_python_time_stamp (const char *path,
                              error))
     return FALSE;
 
-  g_print ("Fixed up header mtime for %s\n", rel_path);
+  g_debug ("Fixed up header mtime for %s\n", rel_path);
 
   /* The mtime will be zeroed on cache commit. We don't want to do that now, because multiple
      files could reference one .py file and we need the mtimes to match for them all */
