@@ -105,6 +105,7 @@ struct BuilderManifest
   GList          *modules;
   GList          *expanded_modules;
   GList          *add_extensions;
+  GList          *add_build_extensions;
 };
 
 typedef struct
@@ -164,6 +165,7 @@ enum {
   PROP_DESKTOP_FILE_NAME_SUFFIX,
   PROP_COLLECTION_ID,
   PROP_ADD_EXTENSIONS,
+  PROP_ADD_BUILD_EXTENSIONS,
   PROP_EXTENSION_TAG,
   LAST_PROP
 };
@@ -193,6 +195,7 @@ builder_manifest_finalize (GObject *object)
   g_clear_object (&self->build_options);
   g_list_free_full (self->modules, g_object_unref);
   g_list_free_full (self->add_extensions, g_object_unref);
+  g_list_free_full (self->add_build_extensions, g_object_unref);
   g_list_free (self->expanded_modules);
   g_strfreev (self->cleanup);
   g_strfreev (self->cleanup_commands);
@@ -350,6 +353,10 @@ builder_manifest_get_property (GObject    *object,
 
     case PROP_ADD_EXTENSIONS:
       g_value_set_pointer (value, self->add_extensions);
+      break;
+
+    case PROP_ADD_BUILD_EXTENSIONS:
+      g_value_set_pointer (value, self->add_build_extensions);
       break;
 
     case PROP_CLEANUP:
@@ -573,6 +580,12 @@ builder_manifest_set_property (GObject      *object,
       g_list_free_full (self->add_extensions, g_object_unref);
       /* NOTE: This takes ownership of the list! */
       self->add_extensions = g_value_get_pointer (value);
+      break;
+
+    case PROP_ADD_BUILD_EXTENSIONS:
+      g_list_free_full (self->add_build_extensions, g_object_unref);
+      /* NOTE: This takes ownership of the list! */
+      self->add_build_extensions = g_value_get_pointer (value);
       break;
 
     case PROP_CLEANUP:
@@ -866,6 +879,12 @@ builder_manifest_class_init (BuilderManifestClass *klass)
                                                          "",
                                                          G_PARAM_READWRITE));
   g_object_class_install_property (object_class,
+                                   PROP_ADD_BUILD_EXTENSIONS,
+                                   g_param_spec_pointer ("add-build-extensions",
+                                                         "",
+                                                         "",
+                                                         G_PARAM_READWRITE));
+  g_object_class_install_property (object_class,
                                    PROP_CLEANUP,
                                    g_param_spec_boxed ("cleanup",
                                                        "",
@@ -1080,19 +1099,26 @@ builder_manifest_serialize_property (JsonSerializable *serializable,
 
       return retval;
     }
-  else if (strcmp (property_name, "add-extensions") == 0)
+  else if (strcmp (property_name, "add-extensions") == 0 ||
+           strcmp (property_name, "add-build-extensions") == 0)
     {
       BuilderManifest *self = BUILDER_MANIFEST (serializable);
       JsonNode *retval = NULL;
+      GList *extensions;
 
-      if (self->add_extensions)
+      if (strcmp (property_name, "add-extensions") == 0)
+        extensions = self->add_extensions;
+      else
+        extensions = self->add_build_extensions;
+
+      if (extensions)
         {
           JsonObject *object;
           GList *l;
 
           object = json_object_new ();
 
-          for (l = self->add_extensions; l != NULL; l = l->next)
+          for (l = extensions; l != NULL; l = l->next)
             {
               BuilderExtension *e = l->data;
               JsonNode *child = json_gobject_serialize (G_OBJECT (e));
@@ -1201,7 +1227,8 @@ builder_manifest_deserialize_property (JsonSerializable *serializable,
 
       return FALSE;
     }
-  else if (strcmp (property_name, "add-extensions") == 0)
+  else if (strcmp (property_name, "add-extensions") == 0 ||
+           strcmp (property_name, "add-build-extensions") == 0)
     {
       if (JSON_NODE_TYPE (property_node) == JSON_NODE_NULL)
         {
@@ -1329,6 +1356,12 @@ GList *
 builder_manifest_get_add_extensions (BuilderManifest *self)
 {
   return self->add_extensions;
+}
+
+GList *
+builder_manifest_get_add_build_extensions (BuilderManifest *self)
+{
+  return self->add_build_extensions;
 }
 
 static const char *
@@ -1519,6 +1552,7 @@ builder_manifest_init_app_dir (BuilderManifest *self,
   g_autoptr(GSubprocess) subp = NULL;
   g_autoptr(GPtrArray) args = NULL;
   g_autofree char *commandline = NULL;
+  GList *l;
   int i;
 
   g_print ("Initializing build dir\n");
@@ -1555,6 +1589,9 @@ builder_manifest_init_app_dir (BuilderManifest *self,
       else
         g_ptr_array_add (args, g_strdup ("--writable-sdk"));
     }
+
+  for (l = self->add_build_extensions; l != NULL; l = l->next)
+    builder_extension_add_finish_args (l->data, args);
 
   for (i = 0; self->sdk_extensions != NULL && self->sdk_extensions[i] != NULL; i++)
     {
@@ -1637,6 +1674,8 @@ builder_manifest_checksum (BuilderManifest *self,
                            BuilderCache    *cache,
                            BuilderContext  *context)
 {
+  GList *l;
+
   builder_cache_checksum_str (cache, BUILDER_MANIFEST_CHECKSUM_VERSION);
   builder_cache_checksum_str (cache, self->id);
   /* No need to include version here, it doesn't affect the build */
@@ -1663,6 +1702,12 @@ builder_manifest_checksum (BuilderManifest *self,
 
   if (self->build_options)
     builder_options_checksum (self->build_options, cache, context);
+
+  for (l = self->add_build_extensions; l != NULL; l = l->next)
+    {
+      BuilderExtension *e = l->data;
+      builder_extension_checksum (e, cache, context);
+    }
 }
 
 static void
@@ -2753,6 +2798,9 @@ builder_manifest_finish (BuilderManifest *self,
             g_ptr_array_add (args, g_strdup (self->finish_args[i]));
         }
 
+      for (l = self->add_build_extensions; l != NULL; l = l->next)
+        builder_extension_add_remove_args (l->data, args);
+
       for (l = self->add_extensions; l != NULL; l = l->next)
         builder_extension_add_finish_args (l->data, args);
 
@@ -3636,6 +3684,23 @@ builder_manifest_install_deps (BuilderManifest *self,
                                                 opt_yes,
                                                 error))
     return FALSE;
+
+  for (GList *l = self->add_build_extensions; l != NULL; l = l->next)
+    {
+      BuilderExtension *extension = l->data;
+      const char *name = builder_extension_get_name (extension);
+      const char *version = builder_extension_get_version (extension);
+
+      if (name == NULL || version == NULL)
+        continue;
+
+      g_print ("Dependency Extension: %s %s\n", name, version);
+      if (!builder_manifest_install_dep (self, context, remote, opt_user, opt_installation,
+                                         name, version,
+                                         opt_yes,
+                                         error))
+        return FALSE;
+    }
 
   return TRUE;
 }
